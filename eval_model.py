@@ -20,8 +20,12 @@ def load_mask_model(args_restored, model_path):
     while len(model.masks) < args['nb_clusters']:
         model.reset_learners_indices() # to duplicate proper number of masks
 
-    state_dict = torch.load(model_path,
-                 map_location={'cuda:{}'.format(i): 'cuda:{}'.format(args['cuda_device']) for i in range(10)})
+    state_dict = torch.load(
+        model_path,
+        map_location={
+            f'cuda:{i}': f"cuda:{args['cuda_device']}" for i in range(10)
+        },
+    )
     model.load_state_dict(state_dict)
 
     return args, model
@@ -51,10 +55,10 @@ def eval_procedure(shelves, log_path):
             args[i]['nb_clusters'] = args[i]['nb_clusters_final']
 
         # choose the correct model checkpoint based on best epoch
-        if len(glob.glob(path + '*.pt')) == 1:
-            model_path = (glob.glob(path + '*.pt')[0])
+        if len(glob.glob(f'{path}*.pt')) == 1:
+            model_path = glob.glob(f'{path}*.pt')[0]
         else:
-            for name in glob.glob(path + '*.pt'):
+            for name in glob.glob(f'{path}*.pt'):
                 if '-full-emb-before-' in name:
                     model_path = name
                     args[i]['force_full_embedding'] = True
@@ -100,13 +104,15 @@ def eval_procedure(shelves, log_path):
             # For other datasets
             dl_ev = dataset.loader.make_loader(args[i], model, 'eval')
 
-        print('  evaluating model: \n --{}--\n'.format(args[i]['log']['name']))
-        print('\n\nBest epoch: {}'.format(best_epoch))
-        print('nb clusters: {}'.format(args[i]['nb_clusters']))
+        print(f"  evaluating model: \n --{args[i]['log']['name']}--\n")
+        print(f'\n\nBest epoch: {best_epoch}')
+        print(f"nb clusters: {args[i]['nb_clusters']}")
 
         R_k, nmi, mARP = eval_model(model, args[i], dl_ev, new_vid=False)
 
-        print('nmi: \n{};\n R@k: \n{};\n mARP: \n{}'.format(100*np.around(nmi,4), 100*np.around(R_k,4), 100*np.around(mARP,4)))
+        print(
+            f'nmi: \n{100 * np.around(nmi, 4)};\n R@k: \n{100 * np.around(R_k, 4)};\n mARP: \n{100 * np.around(mARP, 4)}'
+        )
 
         del model
 
@@ -118,7 +124,7 @@ def main():
     parser.add_argument('log_path', type = str)
     args = parser.parse_args()
     log_path = args.log_path
-    logs = glob.glob(log_path+'*.log')
+    logs = glob.glob(f'{log_path}*.log')
 
     shelves = [log.split('.log')[0] for log in logs]
     eval_procedure(shelves, log_path)

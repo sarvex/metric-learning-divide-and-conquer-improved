@@ -16,11 +16,12 @@ class ClassBalancedSampler(object):
     """
 
     def __init__(self, dataset, batch_size=70, num_samples_per_class=5):
-        logging.debug('->>>Create ClassBalancedSampler batch_size={}, s_per_class={}'\
-                      .format(batch_size, num_samples_per_class))
+        logging.debug(
+            f'->>>Create ClassBalancedSampler batch_size={batch_size}, s_per_class={num_samples_per_class}'
+        )
 
         assert batch_size % num_samples_per_class == 0, \
-            "batch size must be divisable by num_samples_per_class"
+                "batch size must be divisable by num_samples_per_class"
         self.targets = np.array(dataset.ys)
         self.C = list(set(self.targets))
         self.C_index = {
@@ -38,14 +39,15 @@ class ClassBalancedSampler(object):
         self.count = 0
         is_not_enough_classes = len(self.C) < self.num_classes
         if is_not_enough_classes:
-            logging.warn(('Not enough classes to sample batches: have={},'
-                         'required={}').format(len(self.C), self.num_classes))
+            logging.warn(
+                f'Not enough classes to sample batches: have={len(self.C)},required={self.num_classes}'
+            )
         while self.count + self.batch_size < len(self.dataset):
             C = np.random.choice(self.C, self.num_classes, replace=is_not_enough_classes)
             indices = []
             for class_ in C:
                 if self.C_count[class_] + self.num_samples_per_class\
-                   > len( self.C_index[class_]):
+                       > len( self.C_index[class_]):
                     indices.extend(
                         np.random.choice(self.C_index[class_],
                                          self.num_samples_per_class,
@@ -89,14 +91,15 @@ class AdaptiveClassBalancedSampler(object):
                  num_samples_per_class=5,
                  num_replicas=1,
                  small_class_action="duplicate"):
-        logging.debug('->>>Create ClassBalancedSampler(small_class_action={}) batch_size={}, s_per_class={}, num_replicas={}'\
-                      .format(small_class_action, batch_size, num_samples_per_class, num_replicas))
+        logging.debug(
+            f'->>>Create ClassBalancedSampler(small_class_action={small_class_action}) batch_size={batch_size}, s_per_class={num_samples_per_class}, num_replicas={num_replicas}'
+        )
         assert batch_size % num_replicas == 0, \
-            "batch size must be divisable by num_replicas"
+                "batch size must be divisable by num_replicas"
 
         batch_size_wo_replicas = batch_size // num_replicas
         assert batch_size_wo_replicas % num_samples_per_class == 0, \
-            "batch size must be divisable by num_samples_per_class"
+                "batch size must be divisable by num_samples_per_class"
         self.targets = np.array(dataset.ys)
         self.C = list(set(self.targets))
         self.C_index = {
@@ -126,16 +129,21 @@ class AdaptiveClassBalancedSampler(object):
         is_not_enough_classes = len(self.C) < self.num_classes
         if is_not_enough_classes:
             self.num_samples_per_class = self.batch_size_wo_replicas // len(self.C)
-            logging.warn(('Not enough classes to sample batches: have={},'
-                         'required={}. Will sample >= {} sampels per class').format(len(self.C), self.num_classes, self.num_samples_per_class))
+            logging.warn(
+                f'Not enough classes to sample batches: have={len(self.C)},required={self.num_classes}. Will sample >= {self.num_samples_per_class} sampels per class'
+            )
             self.num_classes = len(self.C)
-        assert self.num_classes > 1, 'Cannot sample batches with {} classes!'.format(self.num_classes)
+        assert (
+            self.num_classes > 1
+        ), f'Cannot sample batches with {self.num_classes} classes!'
         # TODO: implement allow_smaller_batches when class is too small
         while self.count + self.batch_size_wo_replicas <= len(self.dataset):
             # Select which classes would be sampled twise in this batch.
             # Set slightly_larger_classes will be non-empty only when batch_size_wo_replicas is not divisible by the number of classes
             num_larger_classes = self.batch_size_wo_replicas - self.num_samples_per_class * self.num_classes
-            assert num_larger_classes < self.num_classes, '{} < {}'.format(num_larger_classes, self.num_classes)
+            assert (
+                num_larger_classes < self.num_classes
+            ), f'{num_larger_classes} < {self.num_classes}'
             slightly_larger_classes = set(np.random.choice(self.C, num_larger_classes, replace=False))
 
             C = np.random.choice(self.C, self.num_classes, replace=False)
@@ -148,7 +156,7 @@ class AdaptiveClassBalancedSampler(object):
                 else:
                     assert self.small_class_action == 'duplicate'
                 if self.C_count[class_] + cur_class_num_samples_to_take\
-                   > len(self.C_index[class_]):
+                       > len(self.C_index[class_]):
                     indices.extend(
                         np.random.choice(self.C_index[class_],
                                          cur_class_num_samples_to_take,
@@ -177,7 +185,9 @@ class AdaptiveClassBalancedSampler(object):
             assert self.small_class_action == 'smaller_batch' or (self.count % self.batch_size_wo_replicas == 0), self.count
             assert self.small_class_action == 'smaller_batch' or len(indices) == self.batch_size_wo_replicas
             if len(indices) < self.batch_size_wo_replicas:
-                logging.debug('Current batch is small ({} < {})'.format(len(indices), self.batch_size_wo_replicas))
+                logging.debug(
+                    f'Current batch is small ({len(indices)} < {self.batch_size_wo_replicas})'
+                )
             # Repeat the batch num_replicas times
             yield np.tile(np.array(indices), reps=self.num_replicas)
 
@@ -191,11 +201,12 @@ class RandomBatchSampler(object):
     """
 
     def __init__(self, dataset, batch_size=70, min_num_classes_per_batch=2, num_replicas=1):
-        logging.debug('->>>Create RandombatchSampler batch_size={}, num_replicas={}'\
-                      .format(batch_size, num_replicas))
+        logging.debug(
+            f'->>>Create RandombatchSampler batch_size={batch_size}, num_replicas={num_replicas}'
+        )
 
         assert batch_size % num_replicas == 0, \
-            "batch size must be divisible by num_replicas"
+                "batch size must be divisible by num_replicas"
 
         batch_size_wo_replicas = batch_size // num_replicas
 

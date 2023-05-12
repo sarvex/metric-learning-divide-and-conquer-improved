@@ -80,9 +80,7 @@ def nearest_neighbors(D, nb_neighbors, labels=None):
     """
     # alt: torch.sort(D, dim = 1)[1][:, 1 : nb_neighbors + 1]
     assert 'tensor' not in str(type(D)).lower(), type(D)
-    nns = []
-    for d in D:
-        nns += [[*np.argsort(d)[: nb_neighbors + 1]]]
+    nns = [[*np.argsort(d)[: nb_neighbors + 1]] for d in D]
     nns = np.asarray(nns)
     for i in range(len(nns)):
         indices = np.nonzero(nns[i, :] != i)[0]
@@ -99,22 +97,23 @@ def non_nearest_neighbors(D, nb_neighbors, labels=None):
     Like nearest neighbors, but choose set difference with
     equal (like nearest neighbors) number of non nearest neighbors.
     """
-    N = []
-    for d in D:
-        N += [random.sample(
-            list(*[torch.sort(d)[1][nb_neighbors + 1:]]), nb_neighbors
-        )]
-    return N
+    return [
+        random.sample(
+            list(*[torch.sort(d)[1][nb_neighbors + 1 :]]), nb_neighbors
+        )
+        for d in D
+    ]
 
 
 def random_sample_non_nearest_examples(nns, k, labels=None):
     assert 'tensor' not in str(type(nns)).lower(), type(nns)
-    non_nearest = []
     set_all_indices = set(range(len(nns)))
-    for i, row in enumerate(nns):
-        non_nearest.append(
-            np.random.choice(list(set_all_indices - set(row) - {i}), size=k, replace=False)
+    non_nearest = [
+        np.random.choice(
+            list(set_all_indices - set(row) - {i}), size=k, replace=False
         )
+        for i, row in enumerate(nns)
+    ]
     return np.array(non_nearest)
 
 
@@ -169,10 +168,7 @@ def get_cluster_labels(model, data_loader, use_penultimate, nb_clusters,
         T_all = np.array(data_loader.dataset.ys)
         I_all = np.array(data_loader.dataset.I)
         C = np.zeros(len(T_all), dtype=int)
-    if with_X:
-        return C, T_all, I_all, np.array(X_all)
-    else:
-        return C, T_all, I_all
+    return (C, T_all, I_all, np.array(X_all)) if with_X else (C, T_all, I_all)
 
 
 def calc_neighbors(model, dataloader, use_penultimate,
@@ -208,7 +204,7 @@ def benchmark_neighbors_search(n=30000, k=11):
     tic = time.time()
     #D = pairwise_distance(x, squared = True)
     #nearest_n = nearest_neighbors(D, nb_neighbors=k)
-    print('Elapsed time: {} sec'.format(time.time() - tic))
+    print(f'Elapsed time: {time.time() - tic} sec')
 
     print('FAISS:')
     tic = time.time()
@@ -217,24 +213,24 @@ def benchmark_neighbors_search(n=30000, k=11):
         print(nns.shape)
     except Exception as e:
         print('FAISS failed', e)
-    print('Elapsed time: {} sec'.format(time.time() - tic))
+    print(f'Elapsed time: {time.time() - tic} sec')
 
 
 def benchmark_clustering(n=100000, k=100):
     clustering_algorithm = sklearn.cluster.KMeans(
         n_clusters=k, verbose=1, n_init=1)
-    print('K-means, n={}, k={}'.format(n, k))
+    print(f'K-means, n={n}, k={k}')
     a = torch.rand(n, 512)
 
     print('FAISS:')
     tic = time.time()
     C = faissext.do_clustering(a.data.cpu().numpy(), num_clusters=k, gpu_ids=None)
-    print('Elapsed time: {} sec'.format(time.time() - tic))
+    print(f'Elapsed time: {time.time() - tic} sec')
 
     print('Sklearn:')
     tic = time.time()
     C = clustering_algorithm.fit(a.data.cpu().numpy()).labels_
-    print('Elapsed time: {} sec'.format(time.time() - tic))
+    print(f'Elapsed time: {time.time() - tic} sec')
 
 
 if __name__ == '__main__':

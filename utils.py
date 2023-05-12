@@ -5,7 +5,6 @@ from metriclearning import faissext
 
 
 def log_clustering_stats(C, T):
-    pass
     logging.info(' -- Clusters stats:')
     c_labels, c_sizes = np.unique(C, return_counts=True)
     for c, sz in zip(c_labels, c_sizes):
@@ -14,9 +13,7 @@ def log_clustering_stats(C, T):
         nb_classes = len(np.unique(T[C == c]))
         logging.info(f' --- {c}: {sz} images ({nb_classes} GT classes]))')
 
-    logging.info(
-        ' --- number of unassigned samples: {}'.format(C[C == -1].sum())
-    )
+    logging.info(f' --- number of unassigned samples: {C[C == -1].sum()}')
 
 def merge_clusters(C, gpu_ids = None):
     C_merge = np.ones_like(C, dtype=np.int32) * -1

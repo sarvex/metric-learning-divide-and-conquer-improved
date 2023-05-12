@@ -54,14 +54,12 @@ def make_parser():
 
 
 def make_args(dataset_roots):
-    args = {
+    return {
         'is_debug': False,
         'reassign_random': False,
         'random_seed': 0,
         'save_model': False,
-        'resnet': {
-            'bn_learnable': False
-        },
+        'resnet': {'bn_learnable': False},
         'supervised': True,
         'experiment_id': 0,
         'penultimate_for_triplets': True,
@@ -80,9 +78,9 @@ def make_args(dataset_roots):
                     'nu': 0.0,
                 },
                 'KantorovMarginLoss': {
-                    'margin': 0.2 # currently is hardcoded
-                }
-            }
+                    'margin': 0.2  # currently is hardcoded
+                },
+            },
         },
         'dataset': {
             'selected': 'cub',
@@ -93,70 +91,61 @@ def make_args(dataset_roots):
                         'train': range(0, 13164),
                         'init': range(0, 13164),
                         # small: 800, mid: +1600, large: +2400
-                        'eval': range(13164, 13164 + 2400)
-                    }
+                        'eval': range(13164, 13164 + 2400),
+                    },
                 },
                 'inshop': {
                     'root': dataset_roots['inshop'],
                     'classes': {
                         'train': range(0, 3997),
                         'init': range(0, 3997),
-                        'eval': range(0, 3985)
-                    }
+                        'eval': range(0, 3985),
+                    },
                 },
                 'cub': {
                     'root': dataset_roots['cub'],
                     'classes': {
                         'train': range(0, 100),
                         'init': range(0, 100),
-                        'eval': range(100, 200)
-                    }
+                        'eval': range(100, 200),
+                    },
                 },
                 'cars': {
                     'root': dataset_roots['cars'],
                     'classes': {
                         'train': range(0, 98),
                         'init': range(0, 98),
-                        'eval': range(98, 196)
-                    }
+                        'eval': range(98, 196),
+                    },
                 },
                 'sop': {
                     'root': dataset_roots['sop'],
                     'classes': {
                         'train': range(0, 11318),
                         'init': range(0, 11318),
-                        'eval': range(11318, 22634)
-                    }
-                }
+                        'eval': range(11318, 22634),
+                    },
+                },
             },
-            'augmentation': {
-                'train': True,
-                'eval': False,
-                'init': False
-            }
+            'augmentation': {'train': True, 'eval': False, 'init': False},
         },
         'recluster': {
             'enabled': True,
             'mod_epoch': 2,
             'method': {
                 'types': ['reset', 'reassign', 'const'],
-                'selected': 'reassign'
-            }
+                'selected': 'reassign',
+            },
         },
-        'clustering_method': {
-            'selected': 'kmeans', # or labels
-            'options': dict()
-        },
+        'clustering_method': {'selected': 'kmeans', 'options': {}},
         'model': {
             'pretrained': True,
             'embedding': {
                 'init_splitted': False,
-                # other values: 'pt_default', all in torch.nn.init.<init>
                 'init_type': 'pt_default',
-                'init_fn_kwargs': dict()
+                'init_fn_kwargs': {},
             },
-            # values: max for maxpooling and avg for averagepooling
-            'features_pooling': 'avg'
+            'features_pooling': 'avg',
         },
         'arch': 'vgg11bn',
         'backend': 'faiss',
@@ -170,34 +159,19 @@ def make_args(dataset_roots):
         'sz_embedding': 64,
         'features_dropout_prob': 0.01,
         'nb_epochs': 10,
-        'finetune_epoch': float('inf'), # keep it here, otherwise will raise error during training.
+        'finetune_epoch': float('inf'),
         'kantorov_bgr': False,
         'force_full_embedding': False,
         'opt': {
-            'base': {
-                    'lr': 1e-3,
-                    'weight_decay': 1e-4
-            },
-            'features': {
-                'lr': 1e-3 * 1e-2,
-                'weight_decay': 1e-4
-            },
-            'embedding': {
-                'lr': 1e-3 * 1e-1,
-                'weight_decay': 1e-4
-            }
+            'base': {'lr': 1e-3, 'weight_decay': 1e-4},
+            'features': {'lr': 1e-3 * 1e-2, 'weight_decay': 1e-4},
+            'embedding': {'lr': 1e-3 * 1e-1, 'weight_decay': 1e-4},
         },
         'lr_scheduler': {
             'class': torch.optim.lr_scheduler.StepLR,
-            'params': {
-                'step_size': float('inf'),
-                'gamma': 1.0
-            }
+            'params': {'step_size': float('inf'), 'gamma': 1.0},
         },
-        'log': {
-            'path': 'log',
-            'name': 'test'
-        },
+        'log': {'path': 'log', 'name': 'test'},
         'dataloader': {
             'train': {
                 'drop_last': False,
@@ -206,28 +180,24 @@ def make_args(dataset_roots):
                 'pin_memory': True,
                 'num_workers': 4,
                 '_batch_sampler': None,
-                '_sampler': None
+                '_sampler': None,
             },
             'init': {
                 'drop_last': False,
                 'shuffle': False,
                 'batch_size': 42,
                 'pin_memory': True,
-                'num_workers': 4
+                'num_workers': 4,
             },
             'eval': {
                 'drop_last': False,
                 'shuffle': False,
                 'batch_size': 42,
                 'pin_memory': True,
-                'num_workers': 4
+                'num_workers': 4,
             },
-            'merged': {
-                'mode': 2,
-                'sampling_mode': 'over'
-            }
+            'merged': {'mode': 2, 'sampling_mode': 'over'},
         },
-        'cuda_device': 0
+        'cuda_device': 0,
     }
-    return args
 

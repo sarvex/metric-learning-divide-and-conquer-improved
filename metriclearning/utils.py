@@ -27,7 +27,7 @@ def predict_batchwise(model, dataloader, use_penultimate, is_dry_run=False, lear
     model_is_training = model.training
     model.eval()
     ds = dataloader.dataset
-    A = [[] for i in range(len(ds[0]))]
+    A = [[] for _ in range(len(ds[0]))]
     with torch.no_grad():
 
         # use tqdm when the dataset is large (SOProducts)
@@ -57,11 +57,7 @@ def predict_batchwise(model, dataloader, use_penultimate, is_dry_run=False, lear
         result = [np.stack(A[i]) for i in range(len(A))]
     model.train()
     model.train(model_is_training) # revert to previous training state
-    if is_dry_run:
-        # do not return features if is_dry_run
-        return [None, *result[1:]]
-    else:
-        return result
+    return [None, *result[1:]] if is_dry_run else result
 
 
 def evaluate_in_shop(model, dl_query, dl_gallery, use_penultimate, backend,
@@ -110,10 +106,7 @@ def evaluate_in_shop(model, dl_query, dl_gallery, use_penultimate, backend,
     else:
         nmi = None
 
-    if final_eval:
-        return nmi, recall, Y
-    else:
-        return nmi, recall
+    return (nmi, recall, Y) if final_eval else (nmi, recall)
 
 
 def evaluate_market(model, dl_query, dl_gallery, K=[1, 5, 10]):
@@ -210,6 +203,8 @@ def eval_model(model, args, dataloader, new_vid=False, with_nmi=True, logging=No
 
             max_class_size = int(np.max(np.unique(T, return_counts=True)[1]))
 
+            R_k = []
+
             if args['dataset']['selected'] != 'sop':
                 # for mAP we need pairwise dist for all samples
                 Y = evaluation.assign_by_euclidian_at_k(X, T, len(X), backend=args['backend'])
@@ -222,8 +217,6 @@ def eval_model(model, args, dataloader, new_vid=False, with_nmi=True, logging=No
                 # To be consistent with the log, we use k=8 to get our R@k
 
                 Y_R = evaluation.assign_by_euclidian_at_k(X, T, 8, backend=args['backend'])
-                R_k = []
-
                 for k in [1, 2, 4, 8]:
                     r_at_k = evaluation.calc_recall_at_k(T, Y_R, k)
                     R_k.append(r_at_k)
@@ -231,20 +224,14 @@ def eval_model(model, args, dataloader, new_vid=False, with_nmi=True, logging=No
                         # TODO apply to other datasets as well
                         logging.info("R@{} : {:.3f}".format(k, 100 * r_at_k))
 
-                mARP = evaluation.mean_avg_R_precision(T, Y, T)
-
             else:
                 # evaluate sop on 1, 10, 100 nns
                 Y = evaluation.assign_by_euclidian_at_k(X, T, 100, backend=args['backend'])
 
                 assert Y.shape[1] >= max_class_size, 'not enough nns to calculate mARP'
 
-                R_k = []
-
-                for k in [1, 10, 100]:
-                    R_k.append(evaluation.calc_recall_at_k(T, Y, k))
-
-                mARP = evaluation.mean_avg_R_precision(T, Y, T)
+                R_k.extend(evaluation.calc_recall_at_k(T, Y, k) for k in [1, 10, 100])
+            mARP = evaluation.mean_avg_R_precision(T, Y, T)
 
             # for a fair nmi we run 10 times clustering with different seed and take the mean as final result
             nb_classes = dataloader.dataset.nb_classes()
@@ -278,7 +265,7 @@ def eval_model(model, args, dataloader, new_vid=False, with_nmi=True, logging=No
         mARP = evaluation.mean_avg_R_precision(T_query, Y, T_gallery)
 
     else:
-        raise ValueError('Unknown dataset: {}'.format(args['dataset']['selected']))
+        raise ValueError(f"Unknown dataset: {args['dataset']['selected']}")
 
     return R_k, nmi, mARP
 
@@ -295,20 +282,15 @@ def eval_vid(model, backend, dataloader, new_vid=False, with_nmi=True):
     # 120 is the size of the largest class
     Y = evaluation.assign_by_euclidian_at_k(X=X, T=T, k=max_class_size + 1, backend=backend)
 
-    R_k = []
-
-    # the normal evaluation procedure
-    for k in [1, 5]:
-        R_k.append(evaluation.calc_recall_at_k(T, Y, k))
-
+    R_k = [evaluation.calc_recall_at_k(T, Y, k) for k in [1, 5]]
     if new_vid:
         # in this case the returned R_k has 4 values
         print('!!! Calculate mean R@k aggregated per class')
         for k in [1, 5]:
-            R_class = []
-            for t in np.unique(T):
-                # get recall per class
-                R_class.append(np.mean(([1 if t in nns else 0 for nns in Y[T == t][:, :k]])))
+            R_class = [
+                np.mean(([1 if t in nns else 0 for nns in Y[T == t][:, :k]]))
+                for t in np.unique(T)
+            ]
             # then average the recall among all class
             R_k.append(np.mean(R_class))
 
@@ -327,14 +309,20 @@ def avg_nmi(backend, nb_classes, X, T, runs=10):
     Compute the nmi multiple times based on different clustering assignments.
     Return the mean and std of these runs.
     """
-    Cluster_assignments = []
-    for random_seed in range(runs):
-        Cluster_assignments.append(faissext.do_clustering(X, num_clusters=nb_classes,
-                                                          gpu_ids=None if backend != 'faiss-gpu'
-                                                          else torch.cuda.current_device(),
-                                                          niter=100, nredo=1, verbose=0,
-                                                          seed=random_seed)
-                                   )
+    Cluster_assignments = [
+        faissext.do_clustering(
+            X,
+            num_clusters=nb_classes,
+            gpu_ids=None
+            if backend != 'faiss-gpu'
+            else torch.cuda.current_device(),
+            niter=100,
+            nredo=1,
+            verbose=0,
+            seed=random_seed,
+        )
+        for random_seed in range(runs)
+    ]
     nmis = [evaluation.calc_normalized_mutual_information(T, c) for c in Cluster_assignments]
 
     return np.mean(nmis), np.std(nmis)

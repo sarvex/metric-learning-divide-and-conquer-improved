@@ -31,17 +31,12 @@ if args.grep is not None:
 
 
 results = defaultdict(list)
-columns=[
-        'epoch',
-         *['R@{}'.format(i) for i in [1, 2, 4, 8, 16]],
-         'NMI',
-         'R@1-penult',
-        ]
+columns = ['epoch', *[f'R@{i}' for i in [1, 2, 4, 8, 16]], 'NMI', 'R@1-penult']
 
 last_modified = None
 
 
-is_valid = dict()
+is_valid = {}
 
 for p in files:
     is_valid[p] = False

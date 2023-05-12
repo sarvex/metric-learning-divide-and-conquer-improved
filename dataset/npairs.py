@@ -11,10 +11,9 @@ class BaseSampler(torch.utils.data.Sampler):
         self.sz_batch = sz_batch
         self.sampler_args = sampler_args
     def __iter__(self):
-        for index in chain.from_iterable(
+        yield from chain.from_iterable(
             self.sampler(self.dataset, self.sz_batch, **self.sampler_args)
-        ):
-            yield index
+        )
     def __len__(self):
         return len(self.dataset.ys)
 
@@ -22,7 +21,7 @@ class BaseSampler(torch.utils.data.Sampler):
 class NPairs(BaseSampler):
     def __init__(self, dataset, batch_size, num_samples_per_class = 4):
         BaseSampler.__init__(self, dataset, batch_size, _npairs, K = num_samples_per_class)
-        print('Npairs sz_batch={}, k={}'.format(batch_size, num_samples_per_class))
+        print(f'Npairs sz_batch={batch_size}, k={num_samples_per_class}')
 
 
 def index_dataset(dataset):
@@ -45,7 +44,7 @@ def sample_from_class(images_by_class, class_label_ind):
 
 def _npairs(dataset, sz_batch, K = 4):
     images_by_class = index_dataset(dataset)
-    for batch_idx in range(
+    for _ in range(
         int(
             math.ceil(
                 len(dataset) * 1.0 / sz_batch

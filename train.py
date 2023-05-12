@@ -67,7 +67,7 @@ class JSONEncoder(json.JSONEncoder):
     def default(self, x):
         # add encoding for other types if necessary
         if isinstance(x, range):
-            return 'range({}, {})'.format(x.start, x.stop)
+            return f'range({x.start}, {x.stop})'
         if not isinstance(x, (int, str, list, float, bool)):
             return repr(x)
         return json.JSONEncoder.default(self, x)
@@ -80,10 +80,14 @@ class MasksFreezer:
         self.is_frozen = False
 
     def _find_opt_group(self):
-        for i, g in enumerate(self.opt.param_groups):
-            if g.get('group_name', None) == 'masks':
-                return i
-        return None
+        return next(
+            (
+                i
+                for i, g in enumerate(self.opt.param_groups)
+                if g.get('group_name', None) == 'masks'
+            ),
+            None,
+        )
 
     def freeze(self, epoch=None):
         group_idx = self._find_opt_group()
@@ -91,11 +95,13 @@ class MasksFreezer:
             return
         assert self.opt.param_groups[group_idx]['group_name'] == 'masks'
         if self.is_frozen:
-            assert self.opt.param_groups[group_idx]['lr'] == 0, 'masks lr={}'.format(self.opt.param_groups[group_idx]['lr'])
+            assert (
+                self.opt.param_groups[group_idx]['lr'] == 0
+            ), f"masks lr={self.opt.param_groups[group_idx]['lr']}"
             return
         # freeze backbone, just set LR to 0
         if epoch is not None:
-            logging.info('Freezing masks at epoch {}.'.format(epoch))
+            logging.info(f'Freezing masks at epoch {epoch}.')
         else:
             logging.info('Freezing masks.')
         self.lr = self.opt.param_groups[group_idx]['lr']
@@ -294,9 +300,9 @@ def evaluate(model, dataloaders, logging, layers = ['final', 'penultimate'],
     scores = {}
     for ltype in loader_types:
         scores[ltype] = {}
-        logging.info("--- Data Loader: {} ---".format(ltype))
+        logging.info(f"--- Data Loader: {ltype} ---")
         for layer in layers:
-            logging.info("-- Layer: {} --".format(layer))
+            logging.info(f"-- Layer: {layer} --")
             if args is not None and args['dataset']['selected'] == 'inshop':
                 logging.info("Using dataset `InShop`")
                 dl_query = dataset.loader.make_loader(args, model,
@@ -306,10 +312,11 @@ def evaluate(model, dataloaders, logging, layers = ['final', 'penultimate'],
 
                 scores[ltype][layer] = metriclearning.utils.evaluate_in_shop(
                     model,
-                    dl_query = dl_query,
-                    dl_gallery = dl_gallery,
-                    use_penultimate = True if layer == 'penultimate' else False,
-                    backend = backend)
+                    dl_query=dl_query,
+                    dl_gallery=dl_gallery,
+                    use_penultimate=layer == 'penultimate',
+                    backend=backend,
+                )
 
             elif args is not None and args['dataset']['selected'] == 'market':
                 logging.info("Using dataset `Market1501`")
@@ -327,8 +334,8 @@ def evaluate(model, dataloaders, logging, layers = ['final', 'penultimate'],
                 scores[ltype][layer] = metriclearning.utils.evaluate(
                     model,
                     dataloaders[ltype],
-                    use_penultimate=True if layer == 'penultimate' else False,
-                    backend=backend
+                    use_penultimate=layer == 'penultimate',
+                    backend=backend,
                 )
     return scores
 
@@ -384,7 +391,7 @@ def train_batch(model, criterion, opt, args, batch, dset, first_run=True):
             for p in model.masks:
                 logging.info('Stopping to optimize masks.')
                 p.requires_grad = False
-            assert len(model.opt.param_groups) in [3, 4]
+            assert len(model.opt.param_groups) in {3, 4}
             assert model.opt.param_groups[-1]['group_name'] == 'masks'
             del model.opt.param_groups[-1]
     else:
@@ -415,13 +422,12 @@ def get_criterion(args):
     loss_class = metriclearning.loss.__dict__[name]
     dataset_name = args['dataset']['selected']
     num_classes = len(args['dataset']['types'][dataset_name]['classes']['train'])
-    logging.debug('Create {} loss. Num classes={}'.format(name, num_classes))
-    # use the same margin loss for every cluster
-    criterion = \
-            loss_class(nb_classes=num_classes,
-                       sampler_args=args['criterion']['sampler'],
-                       **args['criterion']['types'][name]).cuda()
-    return criterion
+    logging.debug(f'Create {name} loss. Num classes={num_classes}')
+    return loss_class(
+        nb_classes=num_classes,
+        sampler_args=args['criterion']['sampler'],
+        **args['criterion']['types'][name]
+    ).cuda()
 
 
 def get_optimizer(args, model, criterion):
@@ -506,7 +512,7 @@ def read_num_epoch_trained(db_path):
         f = shelve.open(db_path, flag='r')
     except Exception as e:
         logging.debug(e)
-        raise IOError('Db file {} not found!'.format(db_path))
+        raise IOError(f'Db file {db_path} not found!')
     if 'metrics' in f:
         try:
             m = f['metrics']
@@ -527,7 +533,7 @@ def read_ckpt_info_from_df(db_path):
         f = shelve.open(db_path, flag='r')
     except Exception as e:
         logging.debug(e)
-        raise IOError('Db file {} not found!'.format(db_path))
+        raise IOError(f'Db file {db_path} not found!')
     m = f['metrics']
     epochs = np.arange(0, np.max(list(m.keys())))
     best_epoch_idx = np.argmax([m[e]['score']['eval']['final'][1][0] for e in epochs])
@@ -539,14 +545,12 @@ def read_ckpt_info_from_df(db_path):
 
 def wandb_log_metrics(metrics, e):
 
-    metric_names = [
-        *['R@{}'.format(i) for i in [1,]],
-    ]
+    metric_names = [*[f'R@{i}' for i in [1,]]]
     metric_values = [*metrics[e]['score']['eval']['final'][1],
                     ]
     # w&b doesn't allow negative step number, use 0 again in that case
-    step = e if e >= 0 else 0
-    wnb.log({k: v for k, v in zip(metric_names, metric_values)}, step=step)
+    step = max(e, 0)
+    wnb.log(dict(zip(metric_names, metric_values)), step=step)
 
 
 def log_extra_info_after_epoch(args, criterion):
@@ -554,10 +558,8 @@ def log_extra_info_after_epoch(args, criterion):
        and args['criterion']['types']['MarginLoss']['lr_beta'] > 0:
         beta = criterion.beta.detach().cpu().numpy()
         k = min(len(beta) // 2, 10)
-        logging.info(' - Margin loss beta: [{} ... {}]'.format(
-                ' '.join(str(round(i.item(), 3)) for i in beta[:k]),
-                ' '.join(str(round(i.item(), 3)) for i in beta[-k:])
-            )
+        logging.info(
+            f" - Margin loss beta: [{' '.join(str(round(i.item(), 3)) for i in beta[:k])} ... {' '.join(str(round(i.item(), 3)) for i in beta[-k:])}]"
         )
 
 

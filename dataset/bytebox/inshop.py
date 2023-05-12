@@ -39,8 +39,7 @@ class InShop(torch.utils.data.Dataset):
         self.I = {'train': [], 'query': [], 'gallery': []}
         # start from second line, since 0th and 1st contain meta-data
         for line in lines[2:]:
-            im_path, im_id, eval_type = [
-                l for l in line.split(' ') if l != '' and l != '\n']
+            im_path, im_id, eval_type = [l for l in line.split(' ') if l not in ['', '\n']]
             y = int(im_id.split('_')[1])
             self.im_paths[eval_type] += [os.path.join(root, im_path)]
             self.ys[eval_type] += [y]
@@ -48,7 +47,7 @@ class InShop(torch.utils.data.Dataset):
             I_[eval_type] += 1
 
         nb_samples_counted = len(self.im_paths['train']) + \
-                len(self.im_paths['gallery']) + len(self.im_paths['query'])
+                    len(self.im_paths['gallery']) + len(self.im_paths['query'])
         assert nb_samples_counted == nb_samples
 
         # verify that labels are sorted for next step

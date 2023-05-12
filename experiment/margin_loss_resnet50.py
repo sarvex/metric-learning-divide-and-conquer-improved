@@ -49,10 +49,7 @@ img_transform_parameters = {
 
 
 def empty_if_default(value, default_value):
-    if value != default_value:
-        return '-' + str(value)
-    else:
-        return ''
+    return f'-{str(value)}' if value != default_value else ''
 
 
 def _args(batch_size, sz_resize, sz_crop, nb_clusters, num_workers=None,
@@ -98,18 +95,13 @@ def _args(batch_size, sz_resize, sz_crop, nb_clusters, num_workers=None,
                     }
 
     if num_workers is None:
-        if nb_clusters > 1:
-            num_workers = 2
-        else:
-            num_workers = 4
+        num_workers = 2 if nb_clusters > 1 else 4
     d = {
         'wandb_enabled': False,
         'reassign_random': False,
         'random_seed': 1,
         'save_model': True,
-        'resnet': {
-            'bn_learnable': False
-        },
+        'resnet': {'bn_learnable': False},
         'supervised': True,
         'dataset': {
             'selected': 'cub',
@@ -118,10 +110,10 @@ def _args(batch_size, sz_resize, sz_crop, nb_clusters, num_workers=None,
                     'classes': {
                         'train': range(0, 100),
                         'init': range(0, 100),
-                        'eval': range(100, 200)
+                        'eval': range(100, 200),
                     }
                 }
-            }
+            },
         },
         'criterion': {
             'selected': 'MarginLoss',
@@ -131,8 +123,8 @@ def _args(batch_size, sz_resize, sz_crop, nb_clusters, num_workers=None,
                     'cutoff': 0.5,
                     # distance weighted sampling options
                     # Fix to something higher if uoy use learnable beta or triplet loss
-                    'nonzero_loss_cutoff_dist': 1.2 + margin
-                }
+                    'nonzero_loss_cutoff_dist': 1.2 + margin,
+                },
             },
             'types': {
                 'MarginLoss': {
@@ -145,24 +137,15 @@ def _args(batch_size, sz_resize, sz_crop, nb_clusters, num_workers=None,
                 'TripletAllLoss': {
                     'margin': margin,
                 },
-                'TripletSemihardLoss': {
-                    'margin': margin,
-                    'soft': soft_loss
-                },
-                'TripletLoss': {
-                    'margin': margin,
-                    'soft': soft_loss
-                },
-                'NPairsLoss': {
-                    'alpha': 1.0,
-                    'lr_alpha': 1.0
-                },
-            }
+                'TripletSemihardLoss': {'margin': margin, 'soft': soft_loss},
+                'TripletLoss': {'margin': margin, 'soft': soft_loss},
+                'NPairsLoss': {'alpha': 1.0, 'lr_alpha': 1.0},
+            },
         },
         'img_transform_parameters': {
             'sz_resize': sz_resize,
             'sz_crop': sz_crop,
-         },
+        },
         'checkpoint': None,
         'penultimate_at_eval': False,
         'features_dropout_prob': 0.01,
@@ -172,8 +155,8 @@ def _args(batch_size, sz_resize, sz_crop, nb_clusters, num_workers=None,
         'opt': {
             'selected': 'Adam',
             'base': {
-                    'lr': base_lr,
-                    'weight_decay': weight_decay,
+                'lr': base_lr,
+                'weight_decay': weight_decay,
             },
             'features_w': {
                 'lr': base_lr,
@@ -194,15 +177,14 @@ def _args(batch_size, sz_resize, sz_crop, nb_clusters, num_workers=None,
             'mask': {
                 # in case of fixed mask, masks will no longer be learnable (lr=0)
                 'lr': base_lr * mask_lr_mult if not fixed_mask else 0,
-                'weight_decay': mask_wd_mult * weight_decay if not fixed_mask else 0
+                'weight_decay': mask_wd_mult * weight_decay
+                if not fixed_mask
+                else 0,
             },
         },
         'lr_scheduler': {
             'class': torch.optim.lr_scheduler.StepLR,
-            'params': {
-                'step_size': float('inf'),
-                'gamma': 0.5
-            }
+            'params': {'step_size': float('inf'), 'gamma': 0.5},
         },
         'dataloader': {
             'train': {
@@ -217,39 +199,31 @@ def _args(batch_size, sz_resize, sz_crop, nb_clusters, num_workers=None,
                 'drop_last': False,
                 'shuffle': False,
                 'batch_size': batch_size,
-                'num_workers': num_workers
+                'num_workers': num_workers,
             },
             'eval': {
                 'drop_last': False,
                 'shuffle': False,
                 'batch_size': batch_size,
-                'num_workers': 4
+                'num_workers': 4,
             },
-            'merged': {
-                'mode': 2,
-                'sampling_mode': 'over'
-            }
+            'merged': {'mode': 2, 'sampling_mode': 'over'},
         },
         'recluster': {
             'enabled': True,
             'mod_epoch': 2,
         },
-        'clustering_method': {
-            'selected': 'kmeans',
-            'options': dict()
-        },
+        'clustering_method': {'selected': 'kmeans', 'options': {}},
         'penultimate_for_clusters': True,
         'model': {
             'pretrained': True,
             'embedding': {
                 'init_splitted': False,
-                # other values: 'pt_default', all in torch.nn.init.<init>
                 'init_type': 'pt_default',
-                'init_fn_kwargs': dict()
+                'init_fn_kwargs': {},
             },
-            # values: max for maxpooling and avg for averagepooling
             'features_pooling': features_pooling,
-            'fixed_mask': fixed_mask
+            'fixed_mask': fixed_mask,
         },
     }
 
@@ -275,7 +249,7 @@ def parse_clustering_method(val):
             'options': dict(mode='adaptive_centroids')
         }
     else:
-        raise ValueError('unknown clustering-method={}'.format(val))
+        raise ValueError(f'unknown clustering-method={val}')
     return res
 
 
@@ -289,9 +263,9 @@ def parse_bool(val):
     """
     try:
         val = int(val)
-        assert val == 0 or val == 1, 'Wrong value: {}'.format(val)
+        assert val in {0, 1}, f'Wrong value: {val}'
     except:
-        raise ValueError('Cannot parse flag {}. It must an integer 0 or 1'.format(val))
+        raise ValueError(f'Cannot parse flag {val}. It must an integer 0 or 1')
     return bool(val)
 
 
@@ -394,7 +368,12 @@ def make_args():
     parser.add_argument('--num-replicas',  default=1, type=int,
                         help='number of replicas of each sample. The batch size must be divisible by it.')
 
-    parser.add_argument('--dataset-dir', default=os.getcwd()+'/DataPath', type=str, help='Path to training data.')
+    parser.add_argument(
+        '--dataset-dir',
+        default=f'{os.getcwd()}/DataPath',
+        type=str,
+        help='Path to training data.',
+    )
 
 
 ############################## params for mask ##################################
@@ -660,38 +639,75 @@ def make_args():
             args_exp['experiment_id'],
             args_exp['sz_embedding'],
             args_exp['nb_clusters'],
-            '-{}'.format(cli_args['init_method']) if cli_args['init_method'] is not None else '',
+            '-{}'.format(cli_args['init_method'])
+            if cli_args['init_method'] is not None
+            else '',
             step_suffix,
-            '-margin{}'.format(cli_args['margin']) if cli_args['margin'] != 0.2 else '',
-            '-kantorov_margin' if args_exp['criterion']['selected'] == 'kantorov_margin' else '',
-            '-' + batch_sampler_suff + \
-            ('-{}'.format(args_exp['recluster']['mod_epoch']) \
-                if args_exp['recluster']['enabled'] \
-                    and args_exp['recluster']['mod_epoch'] != 2 else '') + \
-            ('-{}_{}'.format(args_exp['clustering_method']['selected'],
-                             args_exp['clustering_method']['options']['mode'][:3]) \
-                if args_exp['clustering_method']['selected'] != 'kmeans' else ''),
+            '-margin{}'.format(cli_args['margin'])
+            if cli_args['margin'] != 0.2
+            else '',
+            '-kantorov_margin'
+            if args_exp['criterion']['selected'] == 'kantorov_margin'
+            else '',
+            (
+                f'-{batch_sampler_suff}'
+                + (
+                    '-{}'.format(args_exp['recluster']['mod_epoch'])
+                    if args_exp['recluster']['enabled']
+                    and args_exp['recluster']['mod_epoch'] != 2
+                    else ''
+                )
+            )
+            + (
+                '-{}_{}'.format(
+                    args_exp['clustering_method']['selected'],
+                    args_exp['clustering_method']['options']['mode'][:3],
+                )
+                if args_exp['clustering_method']['selected'] != 'kmeans'
+                else ''
+            ),
             '-clust_final' if not cli_args['penultimate_for_clusters'] else '',
             force_full_emb=force_full_emb_suff,
-            lr_suff=
-            empty_if_default(args_exp['opt']['selected'], optimizers['newlr2']['selected']) + \
-            (str(args_exp['opt']['base']['lr']) if args_exp['opt']['base']['lr'] != DEFAULT_BASE_LR else '') + \
-            ('-emb_lrm{}'.format(cli_args['emb_lr_mult']) if cli_args['emb_lr_mult'] != 1.0 else '') + \
-            ('-wd{}'.format(cli_args['weight_decay']) \
-                if cli_args['weight_decay'] != optimizers['newlr2']['base']['weight_decay'] \
-                else ''),
+            lr_suff=empty_if_default(
+                args_exp['opt']['selected'], optimizers['newlr2']['selected']
+            )
+            + (
+                str(args_exp['opt']['base']['lr'])
+                if args_exp['opt']['base']['lr'] != DEFAULT_BASE_LR
+                else ''
+            )
+            + (
+                '-emb_lrm{}'.format(cli_args['emb_lr_mult'])
+                if cli_args['emb_lr_mult'] != 1.0
+                else ''
+            )
+            + (
+                '-wd{}'.format(cli_args['weight_decay'])
+                if cli_args['weight_decay']
+                != optimizers['newlr2']['base']['weight_decay']
+                else ''
+            ),
             beta_suffix=beta_suffix,
             hierarchy_method_str=hierarchy_method_str,
             clustering_random_state_str=clustering_random_state_str,
-            mod_epoch_freeze=f'-frz{args_exp["mod_epoch_freeze"]}' if args_exp['mod_epoch_freeze'] else '',
-            features_pool='-{}pool'.format(args_exp['features_pooling']) if args_exp['features_pooling'] != 'avg' else '',
+            mod_epoch_freeze=f'-frz{args_exp["mod_epoch_freeze"]}'
+            if args_exp['mod_epoch_freeze']
+            else '',
+            features_pool='-{}pool'.format(args_exp['features_pooling'])
+            if args_exp['features_pooling'] != 'avg'
+            else '',
             sampler=cli_args['sampler'],
             album=args_exp['album'] if args_exp['album'] else '',
             fixed_mask='FIXEDM' if args_exp['fixed_mask'] else '',
             mask_relu='-mnorelu' if not args_exp['mask_relu'] else '',
-            sz_crop='-sz{}'.format(args_exp['img_transform_parameters']['sz_crop']) if args_exp['img_transform_parameters']['sz_crop'] != img_transform_parameters['sz_crop'] else '',
+            sz_crop='-sz{}'.format(
+                args_exp['img_transform_parameters']['sz_crop']
+            )
+            if args_exp['img_transform_parameters']['sz_crop']
+            != img_transform_parameters['sz_crop']
+            else '',
         ),
-        'path': 'log/{}'.format(cli_args.pop('log_dir'))
+        'path': 'log/{}'.format(cli_args.pop('log_dir')),
     }
 
 

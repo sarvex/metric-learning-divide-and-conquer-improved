@@ -22,13 +22,10 @@ class VehicleID(BaseDataset):
         ) as f:
             lines = [l.strip('\n').split(' ') for l in f.readlines()]
 
-        i = 0
-        for l in lines:
-            self.im_paths += [os.path.join(root, 'image', l[0] + '.jpg')]
+        for i, l in enumerate(lines):
+            self.im_paths += [os.path.join(root, 'image', f'{l[0]}.jpg')]
             self.ys += [int(l[1])]
             self.I += [i]
-            i += 1
-
         idx_to_class = {idx: i for i, idx in enumerate(
             sorted(set(self.ys))
         )}

@@ -88,7 +88,7 @@ def train_kmeans(x, num_clusters=1000, gpu_ids=None, niter=100, nredo=1, verbose
     kmeans.max_points_per_centroid = 10000000
 
     if gpu_ids is not None:
-        res = [faiss.StandardGpuResources() for i in gpu_ids]
+        res = [faiss.StandardGpuResources() for _ in gpu_ids]
 
         flat_config = []
         for i in gpu_ids:
@@ -137,7 +137,7 @@ def compute_cluster_assignment(centroids, x):
 def do_clustering(features, num_clusters, gpu_ids=None,
                   num_pca_components=None, niter=100, nredo=1, verbose=0,
                   seed=1234):
-    logging.debug('FAISS: using GPUs {}'.format(gpu_ids))
+    logging.debug(f'FAISS: using GPUs {gpu_ids}')
     features = np.asarray(features.reshape(features.shape[0], -1), dtype=np.float32)
 
     if num_pca_components is not None:
@@ -190,12 +190,12 @@ def find_nearest_neighbors(x, queries=None, k=5, gpu_id=None):
 
     tic = time.time()
     if gpu_id is None:
-        logging.debug('FAISS: cpu::find {} nearest neighbors'\
-                     .format(k - int(remove_self)))
+        logging.debug(f'FAISS: cpu::find {k - int(remove_self)} nearest neighbors')
         index = faiss.IndexFlatL2(d)
     else:
-        logging.debug('FAISS: gpu[{}]::find {} nearest neighbors'\
-                     .format(gpu_id, k - int(remove_self)))
+        logging.debug(
+            f'FAISS: gpu[{gpu_id}]::find {k - int(remove_self)} nearest neighbors'
+        )
         cfg = faiss.GpuIndexFlatConfig()
         cfg.useFloat16 = False
         cfg.device = gpu_id
@@ -257,9 +257,9 @@ def test_knn_search(size=10000, gpu_id=None):
         resources = [faiss.StandardGpuResources()]
         index = faiss.GpuIndexFlatL2(resources[0], d, flat_config[0])
     index.add(x)
-    print('Index built in {} sec'.format(time.time() - tic))
+    print(f'Index built in {time.time() - tic} sec')
     distances, I = index.search(x, 21)
-    print('Searched in {} sec'.format(time.time() - tic))
+    print(f'Searched in {time.time() - tic} sec')
     print(distances.shape)
     print(I.shape)
     print(distances[:5])

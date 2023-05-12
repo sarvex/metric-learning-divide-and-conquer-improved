@@ -61,36 +61,34 @@ def make_loader(args, model, type, I = None, inshop_type = None):
                 )
             )
 
+    elif args['album'] and args['album'] != 'ColorHeavy':
+        ds = datasets[selected_dataset](
+            root=args['dataset']['types'][selected_dataset]['root'],
+            classes=args['dataset']['types'][selected_dataset]['classes'][type],
+            transform=None,
+            albumentation=make_albumentation(mode=args['album'],
+                                               **args['img_transform_parameters'],
+                                               is_train = args['dataset']['augmentation'][type]
+            )
+        )
     else:
-        # for the dataset other than In-Shop
-        if args['album'] and args['album'] != 'ColorHeavy':
-            ds = datasets[selected_dataset](
-                root=args['dataset']['types'][selected_dataset]['root'],
-                classes=args['dataset']['types'][selected_dataset]['classes'][type],
-                transform=None,
-                albumentation=make_albumentation(mode=args['album'],
-                                                   **args['img_transform_parameters'],
-                                                   is_train = args['dataset']['augmentation'][type]
-                )
-            )
+        if args['album'] == 'ColorHeavy':
+            hinton = True
+            logging.debug('Using ColorHeavy augmentations')
         else:
-            if args['album'] == 'ColorHeavy':
-                hinton = True
-                logging.debug('Using ColorHeavy augmentations')
-            else:
-                logging.debug('Using torchvision augmentation')
-                hinton = False
+            logging.debug('Using torchvision augmentation')
+            hinton = False
 
-            ds = datasets[selected_dataset](
-                root = args['dataset']['types'][selected_dataset]['root'],
-                classes = args['dataset']['types'][selected_dataset]['classes'][type],
-                transform = make_transform(
-                    **model.img_normalization_parameters,
-                    **args['img_transform_parameters'],
-                    is_train = args['dataset']['augmentation'][type],
-                    using_hinton=hinton
-                )
+        ds = datasets[selected_dataset](
+            root = args['dataset']['types'][selected_dataset]['root'],
+            classes = args['dataset']['types'][selected_dataset]['classes'][type],
+            transform = make_transform(
+                **model.img_normalization_parameters,
+                **args['img_transform_parameters'],
+                is_train = args['dataset']['augmentation'][type],
+                using_hinton=hinton
             )
+        )
     if type == 'train':
         ds.set_subset(I)
         if args['dataloader'][type]['_batch_sampler'] is None \
@@ -122,7 +120,7 @@ def make_loader(args, model, type, I = None, inshop_type = None):
 
 
 def make_trainloaders_from_clusters(C, I, model, args):
-    dataloaders = [[None] for c in range(args['nb_clusters'])]
+    dataloaders = [[None] for _ in range(args['nb_clusters'])]
     for c in range(args['nb_clusters']):
         dataloaders[c] = make_loader(
             args = args, model = model, type = 'train', I = I[C == c],
@@ -153,9 +151,9 @@ def plot_histograms(C_prev, C_curr, T_prev, T_curr):
 def reassign_clusters(C_prev, C_curr, I_prev, I_curr):
     from scipy.optimize import linear_sum_assignment
     nb_clusters = max(C_prev).item() + 1 # cluster ids start from 0
-    assert set(
-        i.item() for i in np.unique(I_prev)
-    ) == set(i.item() for i in np.unique(I_curr))
+    assert {i.item() for i in np.unique(I_prev)} == {
+        i.item() for i in np.unique(I_curr)
+    }
     I_max = max(I_curr).item() + 1
     I_all = {
         'prev': torch.zeros(nb_clusters, I_max),
@@ -195,10 +193,10 @@ def merge_dataloaders(dls_non_iter, mode, sampling_mode):
     mode 3: like mode 2, but permute order of data loaders (N, 2, 5, ...)
     """
     nb_batches_per_dl = [len(dl) for dl in dls_non_iter]
-    if sampling_mode == 'under':
-        nb_batches = min(nb_batches_per_dl)
-    elif sampling_mode == 'over':
+    if sampling_mode == 'over':
         nb_batches = max(nb_batches_per_dl)
+    elif sampling_mode == 'under':
+        nb_batches = min(nb_batches_per_dl)
     I = range(len(dls_non_iter))
 
     length = len(dls_non_iter)
@@ -208,22 +206,22 @@ def merge_dataloaders(dls_non_iter, mode, sampling_mode):
     if mode == 1:
         k = 0
         for i in I:
-            for j in range(nb_batches):
+            for _ in range(nb_batches):
                 k += 1
                 b = next(dls[i], None)
-                if b == None:
+                if b is None:
                     # initialize new dataloader in case no batches left
                     dls[i] = iter(dls_non_iter[i])
                     b = next(dls[i])
                 yield b, dls_non_iter[i].dataset
-    elif mode == 2 or mode == 3:
-        for j in range(nb_batches):
+    elif mode in [2, 3]:
+        for _ in range(nb_batches):
             if mode == 3:
                 # shuffle dataloaders
                 I = random.sample(I, len(I))
             for i in I:
                 b = next(dls[i], None)
-                if b == None:
+                if b is None:
                     # initialize new dataloader in case no batches left
                     dls[i] = iter(dls_non_iter[i])
                     b = next(dls[i])

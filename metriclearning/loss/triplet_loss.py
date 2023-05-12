@@ -134,15 +134,12 @@ class TripletLoss(torch.nn.Module):
     def forward(self, embeddings, labels):
 
         anchor_idxs, anchors, positives, negatives = \
-            self.sampler(embeddings, labels)
+                self.sampler(embeddings, labels)
 
         d_ap = F.pairwise_distance(anchors, positives, p=2)
         d_an = F.pairwise_distance(anchors, negatives, p=2)
         diff = d_ap - d_an
-        if self.soft:
-            loss = diff.exp().log1p()
-        else:
-            loss = F.relu(diff + self.margin)
+        loss = diff.exp().log1p() if self.soft else F.relu(diff + self.margin)
         if self.avg_non_zero_only:
             cnt = (loss > 0).nonzero().size(0)
             return (loss.sum() / cnt) if cnt else loss.sum()

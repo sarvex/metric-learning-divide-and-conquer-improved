@@ -24,10 +24,7 @@ def pdist(A, squared=False, eps=1e-4):
     res = (norm + norm.t() - 2 * prod).clamp(min=0)
     # TODO: make numerically stable like in TF
     # tensorflow/contrib/losses/python/metric_learning/metric_loss_ops.py
-    if squared:
-        return res
-    else:
-        return res.clamp(min=eps).sqrt()
+    return res if squared else res.clamp(min=eps).sqrt()
 
 
 def topk_mask(input, dim, K=10, **kwargs):
@@ -46,10 +43,12 @@ def masked_maximum(data, mask, dim=1):
       The maximized dimension is of size 1 after the operation.
     """
     axis_minimums = data.min(dim, keepdim=True)[0]
-    masked_maximums = torch.max(
-      torch.mul(data - axis_minimums, mask), dim=dim,
-        keepdim=True)[0] + axis_minimums
-    return masked_maximums
+    return (
+        torch.max(
+            torch.mul(data - axis_minimums, mask), dim=dim, keepdim=True
+        )[0]
+        + axis_minimums
+    )
 
 
 def masked_minimum(data, mask, dim=1):
@@ -63,10 +62,12 @@ def masked_minimum(data, mask, dim=1):
       The minimized dimension is of size 1 after the operation.
     """
     axis_maximums = data.max(dim, keepdim=True)[0]
-    masked_minimums = torch.min(
-      torch.mul(data - axis_maximums, mask), dim=dim,
-      keepdim=True)[0] + axis_maximums
-    return masked_minimums
+    return (
+        torch.min(
+            torch.mul(data - axis_maximums, mask), dim=dim, keepdim=True
+        )[0]
+        + axis_maximums
+    )
 
 
 class DistanceWeightedSampler(nn.Module):
@@ -114,13 +115,11 @@ class DistanceWeightedSampler(nn.Module):
         Not normalized
         """
         inv_log_q_d = (2.0 - float(n_dims)) * torch.log(distances) \
-                      - (float(n_dims - 3) / 2) * \
-                      torch.log(1.0 - 0.25 * (distances ** 2.0))
+                          - (float(n_dims - 3) / 2) * \
+                          torch.log(1.0 - 0.25 * (distances ** 2.0))
         inv_log_q_d[ignore_mask] = 0
 
-        # Subtract max(log(distances)) for numerical stability.
-        weights = torch.exp(inv_log_q_d - inv_log_q_d.max(dim=1, keepdim=True)[0])
-        return weights
+        return torch.exp(inv_log_q_d - inv_log_q_d.max(dim=1, keepdim=True)[0])
 
     def forward(self, x, labels):
         n = x.shape[0]
@@ -150,7 +149,7 @@ class DistanceWeightedSampler(nn.Module):
         assert num_neg >= 1
 
         weights.masked_fill_(pos_and_self_mask, 0.0) \
-                .masked_fill_(distances > self.nonzero_loss_cutoff_dist,
+                    .masked_fill_(distances > self.nonzero_loss_cutoff_dist,
                               self.eps)
         assert torch.isfinite(weights).all()
 
@@ -173,20 +172,15 @@ class DistanceWeightedSampler(nn.Module):
             cur_posits = np.atleast_1d(pos[i].nonzero().squeeze().cpu().numpy())
             cur_negs = np.atleast_1d(neg[i].nonzero().squeeze().cpu().numpy())
             if len(cur_negs) != len(cur_posits):
+                if cnt_warnings < 0:
+                    logging.debug(
+                        f'Too many negatives: Anchor idx={i}, n_pos={len(cur_posits)}, n_neg= {len(cur_negs)}'
+                    )
+                    cnt_warnings += 1
                 if len(cur_posits) < len(cur_negs):
-                    if cnt_warnings < 0:
-                        logging.debug('Too many negatives: '\
-                                       'Anchor idx={}, n_pos={}, n_neg= {}'\
-                                        .format(i, len(cur_posits), len(cur_negs)))
-                        cnt_warnings += 1
                     # duplicate positives with repetitions
                     cur_posits = np.random.choice(cur_posits, size=len(cur_negs))
                 else:
-                    if cnt_warnings < 0:
-                        logging.debug('Too many negatives: '\
-                                       'Anchor idx={}, n_pos={}, n_neg= {}'\
-                                        .format(i, len(cur_posits), len(cur_negs)))
-                        cnt_warnings += 1
                     # select only subset of positives
                     cur_posits = np.random.choice(cur_posits, size=len(cur_negs),
                                                   replace=False)
@@ -196,7 +190,7 @@ class DistanceWeightedSampler(nn.Module):
             n_indices.extend(cur_negs)
             a_indices.extend([i] * len(cur_posits))
         assert len(a_indices) == len(p_indices) == len(n_indices), \
-                '{}, {}, {}'.format(*map(len, [a_indices, p_indices, n_indices]))
+                    '{}, {}, {}'.format(*map(len, [a_indices, p_indices, n_indices]))
         assert len(a_indices), a_indices
         return a_indices, x[a_indices], x[p_indices], x[n_indices]
 
@@ -256,10 +250,9 @@ class EasyPeasyPairsSampler(nn.Module):
                 cur_negs = np.atleast_1d(neg[i].nonzero().squeeze().cpu().numpy())
                 if len(cur_negs) != len(cur_posits):
                     if cnt_warnings < 1:
-                        logging.debug('Probably too many positives, because of lacking'\
-                                        ' classes in the current cluster.'\
-                                        ' Anchor idx={}, n_pos={}, n_neg= {}'\
-                                        .format(i, len(cur_posits), len(cur_negs)))
+                        logging.debug(
+                            f'Probably too many positives, because of lacking classes in the current cluster. Anchor idx={i}, n_pos={len(cur_posits)}, n_neg= {len(cur_negs)}'
+                        )
                         cnt_warnings += 1
                     min_len = min(map(len, [cur_posits, cur_negs]))
                     cur_posits = cur_posits[:min_len]
@@ -269,7 +262,7 @@ class EasyPeasyPairsSampler(nn.Module):
                 a_indices.extend([i] * len(cur_posits))
 
         assert len(a_indices) == len(p_indices) == len(n_indices), \
-                '{}, {}, {}'.format(*map(len, [a_indices, p_indices, n_indices]))
+                    '{}, {}, {}'.format(*map(len, [a_indices, p_indices, n_indices]))
         return a_indices, x[a_indices], x[p_indices], x[n_indices]
 
 

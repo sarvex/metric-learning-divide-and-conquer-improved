@@ -72,11 +72,11 @@ class ResizeV2(A.Resize):
         if w < h:
             ow = self.height
             oh = int(self.height * h / w)
-            return F.resize(img, oh, ow, interpolation=interpolation)
         else:
             oh = self.height
             ow = int(self.height * w / h)
-            return F.resize(img, oh, ow, interpolation=interpolation)
+
+        return F.resize(img, oh, ow, interpolation=interpolation)
 
     def apply_to_bbox(self, bbox, **params):
         pass

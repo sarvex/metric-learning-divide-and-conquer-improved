@@ -65,11 +65,7 @@ class MarginLoss(torch.nn.Module):
         anchor_classes = labels[anchor_idxs]
 
         if anchor_classes is not None:
-            if self.class_specific_beta:
-                # select beta for every sample according to the class label
-                beta = self.beta[anchor_classes]
-            else:
-                beta = self.beta
+            beta = self.beta[anchor_classes] if self.class_specific_beta else self.beta
             beta_regularization_loss = torch.norm(beta, p=1) * self.nu
         else:
             beta = self.beta
@@ -89,7 +85,7 @@ class MarginLoss(torch.nn.Module):
         neg_loss = F.relu(beta - d_an + self.margin)
 
         pair_cnt = torch.sum((pos_loss > 0.0).type(torch.float32) + \
-                             (neg_loss > 0.0).type(torch.float32)).type_as(pos_loss)
+                                 (neg_loss > 0.0).type(torch.float32)).type_as(pos_loss)
         loss = torch.sum(pos_loss + neg_loss)
         if pair_cnt > 0.0:
             # Normalize based on the number of pairs.
